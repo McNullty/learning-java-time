@@ -5,16 +5,24 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.time.DateTimeException;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
+import java.time.MonthDay;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalAdjuster;
 import java.time.temporal.TemporalAdjusters;
+import java.time.temporal.TemporalQuery;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.Locale;
 
 import org.junit.Test;
 
@@ -67,6 +75,7 @@ public class JavaDateTimeTest {
 		ZonedDateTime zdtStart = ZonedDateTime.of(dstStart, ZoneId.of("Europe/Paris"));
 		assertThat(zdtStart.plusHours(24).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
 				.isEqualTo("2017-03-26T13:00:00");
+		assertThat(zdtStart.plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)).isEqualTo("2017-03-26T12:00:00");
 
 		ZonedDateTime zdtEnd = ZonedDateTime.of(2017, 10, 28, 12, 0, 0, 0, ZoneId.of("Europe/Paris"));
 		assertThat(zdtEnd.plusHours(24).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)).isEqualTo("2017-10-29T11:00:00");
@@ -79,7 +88,7 @@ public class JavaDateTimeTest {
 		LocalDate endDate = startDate.plusWeeks(2);
 		assertThat(endDate).isEqualTo("2017-08-08");
 
-		// Two weeks grom given date and then get date of next Friday
+		// Two weeks from given date and then get date of next Friday
 		LocalDate endDateWithNextFriday = startDate.plusWeeks(2).with(TemporalAdjusters.next(DayOfWeek.FRIDAY));
 		assertThat(endDateWithNextFriday).isEqualTo("2017-08-11");
 	}
@@ -92,5 +101,116 @@ public class JavaDateTimeTest {
 		Date gregorianDate = new GregorianCalendar(2017, 5, 20).getTime();
 
 		assertThat(date).isEqualTo(gregorianDate);
+	}
+
+	@Test
+	public void testDayOfTheWeek() {
+		DayOfWeek utorak = DayOfWeek.TUESDAY;
+		Locale zagreb = Locale.getDefault();
+
+		assertThat(utorak.getDisplayName(TextStyle.FULL, zagreb)).isEqualTo("utorak");
+
+		assertThat(Month.JANUARY.getDisplayName(TextStyle.FULL, zagreb)).isEqualTo("siječnja");
+		assertThat(Month.JANUARY.getDisplayName(TextStyle.FULL_STANDALONE, zagreb)).isEqualTo("siječanj");
+	}
+
+	@Test
+	public void testMonthDay() {
+		assertThat(MonthDay.of(Month.FEBRUARY, 29).isValidYear(2017)).isEqualTo(false);
+		assertThat(MonthDay.of(Month.FEBRUARY, 29).isValidYear(2016)).isEqualTo(true);
+	}
+
+	@Test
+	public void testOffset() {
+		LocalDateTime now = LocalDateTime.now();
+
+		ZonedDateTime la = now.atZone(ZoneId.of("America/Los_Angeles"));
+
+		System.out.println("now: " + now);
+		System.out.println("la: " + la);
+		System.out.println("la offsetTime: " + la.toOffsetDateTime());
+	}
+
+	@Test
+	public void testInstant() {
+		Instant timestamp = Instant.now();
+		System.out.println(timestamp);
+
+		Date timestampDate = new Date(System.currentTimeMillis());
+		System.out.println(timestampDate);
+	}
+
+	class NextPaydayAdjuster implements TemporalAdjuster {
+
+		@Override
+		public Temporal adjustInto(final Temporal temporal) {
+			LocalDate date = LocalDate.from(temporal);
+
+			LocalDate thisMonthPayday = LocalDate.of(date.getYear(), date.getMonth(), 11);
+			thisMonthPayday = adjustForWeekends(thisMonthPayday);
+
+			if (date.isBefore(thisMonthPayday) || date.isEqual(thisMonthPayday)) {
+				return thisMonthPayday;
+			}
+
+			LocalDate nextMonthPayday = LocalDate.of(date.getYear(), date.getMonth().plus(1), 11);
+			nextMonthPayday = adjustForWeekends(nextMonthPayday);
+
+			return nextMonthPayday;
+		}
+
+		private LocalDate adjustForWeekends(final LocalDate payday) {
+			if (payday.getDayOfWeek() == DayOfWeek.SUNDAY || payday.getDayOfWeek() == DayOfWeek.SATURDAY) {
+				return payday.with(TemporalAdjusters.previous(DayOfWeek.FRIDAY));
+			}
+
+			return payday;
+		}
+
+	}
+
+	@Test
+	public void testCustomTemporalAdjuster() {
+		LocalDate date = LocalDate.of(2017, 6, 9);
+		assertThat(date.with(new NextPaydayAdjuster())).isEqualTo(date);
+		assertThat(LocalDate.of(2017, 6, 3).with(new NextPaydayAdjuster())).isEqualTo(date);
+
+		assertThat(LocalDate.of(2017, 6, 10).with(new NextPaydayAdjuster())).isEqualTo(LocalDate.of(2017, 7, 11));
+	}
+
+	class WorkDays implements TemporalQuery<Boolean> {
+
+		@Override
+		public Boolean queryFrom(final TemporalAccessor temporal) {
+			LocalDate date = LocalDate.from(temporal);
+
+			if (date.getDayOfWeek() == DayOfWeek.SUNDAY || date.getDayOfWeek() == DayOfWeek.SATURDAY) {
+				return false;
+			}
+
+			return true;
+		}
+	}
+
+	@Test
+	public void testCustomTemporalQuery() {
+		assertThat(LocalDate.of(2017, 6, 9).getDayOfWeek()).isEqualTo(DayOfWeek.FRIDAY);
+		assertThat(LocalDate.of(2017, 6, 9).query(new WorkDays())).isEqualTo(true);
+		assertThat(LocalDate.of(2017, 6, 10).query(new WorkDays())).isEqualTo(false);
+	}
+
+	@Test
+	public void testParsing() {
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MM yyyy");
+
+		LocalDate date = LocalDate.parse("13 06 2017", formatter);
+		assertThat(date).isEqualTo("2017-06-13");
+	}
+
+	@Test
+	public void testZone() {
+		System.out.println(ZoneId.systemDefault());
+		System.out.println(ZoneId.getAvailableZoneIds());
+		System.out.println(ZoneId.SHORT_IDS);
 	}
 }
