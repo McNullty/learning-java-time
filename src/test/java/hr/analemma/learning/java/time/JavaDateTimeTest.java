@@ -5,11 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.time.DateTimeException;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Month;
 import java.time.MonthDay;
+import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -197,6 +200,45 @@ public class JavaDateTimeTest {
 		assertThat(LocalDate.of(2017, 6, 9).getDayOfWeek()).isEqualTo(DayOfWeek.FRIDAY);
 		assertThat(LocalDate.of(2017, 6, 9).query(new WorkDays())).isEqualTo(true);
 		assertThat(LocalDate.of(2017, 6, 10).query(new WorkDays())).isEqualTo(false);
+	}
+
+	@Test
+	public void testDuration() throws InterruptedException {
+		Instant t1 = Instant.now();
+
+		Thread.sleep(1500);
+
+		Instant t2 = Instant.now();
+
+		Duration duration = Duration.between(t1, t2);
+		assertThat(duration.getSeconds()).isEqualTo(1);
+		assertThat(duration).isGreaterThanOrEqualTo(Duration.ofMillis(1500));
+
+		LocalTime start = LocalTime.of(9, 5);
+		LocalTime end = LocalTime.of(10, 17);
+		Duration gap = Duration.between(start, end);
+
+		assertThat(gap.toHours()).isEqualTo(1);
+		assertThat(gap.toMinutes()).isEqualTo(72);
+
+		LocalTime start2 = LocalTime.of(11, 5);
+		LocalTime end2 = LocalTime.of(13, 5);
+		Duration gap2 = Duration.between(start2, end2);
+		assertThat(gap2.toHours()).isEqualTo(2);
+
+		Duration dur = gap.plus(gap2);
+		assertThat(dur.toHours()).isEqualTo(3);
+		assertThat(dur.toMinutes()).isEqualTo(192);
+	}
+
+	@Test
+	public void testPeriods() {
+		LocalDate start = LocalDate.of(2017, Month.AUGUST, 11);
+		LocalDate end = LocalDate.of(2017, Month.SEPTEMBER, 21);
+
+		Period gap = Period.between(start, end);
+		assertThat(gap.getDays()).isEqualTo(10);
+		assertThat(gap.getMonths()).isEqualTo(1);
 	}
 
 	@Test
