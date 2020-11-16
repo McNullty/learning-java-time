@@ -152,6 +152,17 @@ public class JavaDateTimeTest {
     System.out.println(now.atStartOfDay(ZoneId.systemDefault()).toEpochSecond());
   }
 
+  @Test
+  public void testCreateLocalDateFromUnixEpoch() {
+    final LocalDate todayFromUnixEpoch = Instant.ofEpochMilli(System.currentTimeMillis())
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate();
+
+    final LocalDate now = LocalDate.now();
+
+    assertThat(now).isEqualTo(todayFromUnixEpoch);
+  }
+
   class NextPaydayAdjuster implements TemporalAdjuster {
 
     @Override
