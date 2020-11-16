@@ -163,6 +163,19 @@ public class JavaDateTimeTest {
     assertThat(now).isEqualTo(todayFromUnixEpoch);
   }
 
+  @Test
+  public void testNumberOfDaysBetweenTwoDates() {
+    LocalDate now = LocalDate.now();
+
+    LocalDate dayAfterNext = now.plusDays(2);
+
+    final long daysBetween = ChronoUnit.DAYS.between(LocalDate.now(), dayAfterNext);
+    assertThat(daysBetween).isEqualTo(2);
+
+    assertThat(ChronoUnit.DAYS.between(dayAfterNext, LocalDate.now().minusDays(3))).isEqualTo(-1);
+
+  }
+
   class NextPaydayAdjuster implements TemporalAdjuster {
 
     @Override
